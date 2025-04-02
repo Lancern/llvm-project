@@ -72,6 +72,19 @@ struct MissingFeatures {
   static bool opFuncLinkage() { return false; }
   static bool opFuncVisibility() { return false; }
 
+  // CallOp handling
+  static bool opCallBuiltinFunc() { return false; }
+  static bool opCallPseudoDtor() { return false; }
+  static bool opCallArgs() { return false; }
+  static bool opCallArgEvaluationOrder() { return false; }
+  static bool opCallCallConv() { return false; }
+  static bool opCallSideEffect() { return false; }
+  static bool opCallChainCall() { return false; }
+  static bool opCallNoPrototypeFunc() { return false; }
+  static bool opCallMustTail() { return false; }
+  static bool opCallVirtual() { return false; }
+  static bool opCallInAlloca() { return false; }
+
   // ScopeOp handling
   static bool opScopeCleanupRegion() { return false; }
 
@@ -91,7 +104,10 @@ struct MissingFeatures {
   static bool opTBAA() { return false; }
   static bool opCmp() { return false; }
   static bool objCLifetime() { return false; }
+  static bool objCBlocks() { return false; }
   static bool emitNullabilityCheck() { return false; }
+  static bool emitLValueAlignmentAssumption() { return false; }
+  static bool emitLifetimeMarkers() { return false; }
   static bool astVarDeclInterface() { return false; }
   static bool stackSaveOp() { return false; }
   static bool aggValueSlot() { return false; }
@@ -109,6 +125,8 @@ struct MissingFeatures {
   static bool cgFPOptionsRAII() { return false; }
   static bool metaDataNode() { return false; }
   static bool fastMathFlags() { return false; }
+  static bool weakRefReference() { return false; }
+  static bool hip() { return false; }
 
   // Missing types
   static bool dataMemberType() { return false; }

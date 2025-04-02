@@ -254,3 +254,33 @@ mlir::Type CIRGenTypes::convertTypeForMem(clang::QualType qualType,
 
   return convertedType;
 }
+
+const CIRGenFunctionInfo &CIRGenTypes::arrangeCIRFunctionInfo() {
+  // Lookup or create unique function info.
+  llvm::FoldingSetNodeID id;
+  CIRGenFunctionInfo::profile(id);
+
+  void *insertPos = nullptr;
+  CIRGenFunctionInfo *fi = functionInfos.FindNodeOrInsertPos(id, insertPos);
+  if (fi)
+    return *fi;
+
+  assert(!cir::MissingFeatures::opCallCallConv());
+
+  // Construction the function info. We co-allocate the ArgInfos.
+  fi = CIRGenFunctionInfo::create();
+  functionInfos.InsertNode(fi, insertPos);
+
+  bool inserted = functionsBeingProcessed.insert(fi).second;
+  (void)inserted;
+  assert(inserted && "Recursively being processed?");
+
+  assert(!cir::MissingFeatures::opCallCallConv());
+  assert(!cir::MissingFeatures::opCallArgs());
+
+  bool erased = functionsBeingProcessed.erase(fi);
+  (void)erased;
+  assert(erased && "Not in set?");
+
+  return *fi;
+}

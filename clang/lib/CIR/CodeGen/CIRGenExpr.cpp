@@ -18,6 +18,7 @@
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/Expr.h"
+#include "clang/AST/ExprCXX.h"
 #include "clang/CIR/Dialect/IR/CIRDialect.h"
 #include "clang/CIR/MissingFeatures.h"
 
@@ -302,6 +303,94 @@ RValue CIRGenFunction::emitAnyExpr(const Expr *e) {
     return RValue::get(nullptr);
   }
   llvm_unreachable("bad evaluation kind");
+}
+
+static cir::FuncOp emitFunctionDeclPointer(CIRGenModule &cgm, GlobalDecl gd) {
+  assert(!cir::MissingFeatures::weakRefReference());
+  return cgm.getAddrOfFunction(gd);
+}
+
+static CIRGenCallee emitDirectCallee(CIRGenModule &cgm, GlobalDecl gd) {
+  assert(!cir::MissingFeatures::opCallBuiltinFunc());
+
+  cir::FuncOp callee = emitFunctionDeclPointer(cgm, gd);
+
+  assert(!cir::MissingFeatures::hip());
+
+  return CIRGenCallee::forDirect(callee, gd);
+}
+
+RValue CIRGenFunction::emitCall(clang::QualType calleeTy,
+                                const CIRGenCallee &callee,
+                                const clang::CallExpr *e) {
+  // Get the actual function type. The callee type will always be a pointer to
+  // function type or a block pointer type.
+  assert(calleeTy->isFunctionPointerType() &&
+         "Callee must have function pointer type!");
+
+  if (getLangOpts().CPlusPlus)
+    assert(!cir::MissingFeatures::sanitizers());
+
+  assert(!cir::MissingFeatures::sanitizers());
+  assert(!cir::MissingFeatures::opCallArgs());
+
+  const CIRGenFunctionInfo &funcInfo = cgm.getTypes().arrangeFreeFunctionCall();
+
+  assert(!cir::MissingFeatures::opCallNoPrototypeFunc());
+  assert(!cir::MissingFeatures::opCallChainCall());
+  assert(!cir::MissingFeatures::hip());
+  assert(!cir::MissingFeatures::opCallMustTail());
+
+  cir::CIRCallOpInterface callOp;
+  RValue callResult =
+      emitCall(funcInfo, callee, &callOp, getLoc(e->getExprLoc()));
+
+  assert(!cir::MissingFeatures::generateDebugInfo());
+
+  return callResult;
+}
+
+CIRGenCallee CIRGenFunction::emitCallee(const clang::Expr *e) {
+  e = e->IgnoreParens();
+
+  // Resolve direct calls.
+  if (const auto *declRef = dyn_cast<DeclRefExpr>(e)) {
+    const auto *funcDecl = dyn_cast<FunctionDecl>(declRef->getDecl());
+    assert(
+        funcDecl &&
+        "DeclRef referring to FunctionDecl is the only thing supported so far");
+    return emitDirectCallee(cgm, funcDecl);
+  }
+
+  llvm_unreachable("Nothing else supported yet!");
+}
+
+RValue CIRGenFunction::emitCallExpr(const clang::CallExpr *e) {
+  assert(!cir::MissingFeatures::objCBlocks());
+
+  if (isa<CXXMemberCallExpr>(e)) {
+    cgm.errorNYI(e->getSourceRange(), "call to member function");
+    return RValue::get(nullptr);
+  }
+
+  if (isa<CUDAKernelCallExpr>(e)) {
+    cgm.errorNYI(e->getSourceRange(), "call to CUDA kernel");
+    return RValue::get(nullptr);
+  }
+
+  if (const auto *operatorCall = dyn_cast<CXXOperatorCallExpr>(e)) {
+    if (isa_and_nonnull<CXXMethodDecl>(operatorCall->getCalleeDecl())) {
+      cgm.errorNYI(e->getSourceRange(), "call to member operator");
+      return RValue::get(nullptr);
+    }
+  }
+
+  CIRGenCallee callee = emitCallee(e->getCallee());
+
+  assert(!cir::MissingFeatures::opCallBuiltinFunc());
+  assert(!cir::MissingFeatures::opCallPseudoDtor());
+
+  return emitCall(e->getCallee()->getType(), callee, e);
 }
 
 /// Emit code to compute the specified expression, ignoring the result.

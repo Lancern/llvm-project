@@ -399,6 +399,26 @@ public:
 
   LValue emitBinaryOperatorLValue(const BinaryOperator *e);
 
+  /// An abstract representation of regular/ObjC call/message targets.
+  class AbstractCallee {
+    /// The function declaration of the callee.
+    const clang::Decl *calleeDecl;
+
+  public:
+    AbstractCallee() : calleeDecl(nullptr) {}
+    AbstractCallee(const clang::FunctionDecl *fd) : calleeDecl(fd) {}
+  };
+
+  RValue emitCall(const CIRGenFunctionInfo &funcInfo,
+                  const CIRGenCallee &callee, cir::CIRCallOpInterface *callOp,
+                  mlir::Location loc);
+  RValue emitCall(clang::QualType calleeTy, const CIRGenCallee &callee,
+                  const clang::CallExpr *e);
+
+  CIRGenCallee emitCallee(const clang::Expr *e);
+
+  RValue emitCallExpr(const clang::CallExpr *e);
+
   /// Emit an expression as an initializer for an object (variable, field, etc.)
   /// at the given location.  The expression is not necessarily the normal
   /// initializer for the object, and the address is not necessarily
