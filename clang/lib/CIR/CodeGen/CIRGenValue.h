@@ -274,6 +274,12 @@ class AggValueSlot {
 public:
   enum IsZeroed_t { IsNotZeroed, IsZeroed };
 
+  /// ignored - Returns an aggregate value slot indicating that the aggregate
+  /// value is being ignored.
+  static AggValueSlot ignored() {
+    return forAddr(Address::invalid(), clang::Qualifiers());
+  }
+
   AggValueSlot(Address addr, clang::Qualifiers quals, bool zeroedFlag)
       : addr(addr), quals(quals), zeroedFlag(zeroedFlag) {}
 
@@ -293,6 +299,13 @@ public:
   bool isIgnored() const { return !addr.isValid(); }
 
   IsZeroed_t isZeroed() const { return IsZeroed_t(zeroedFlag); }
+
+  RValue asRValue() const {
+    if (isIgnored())
+      return RValue::getIgnored();
+    assert(!cir::MissingFeatures::aggValueSlot());
+    return RValue::getAggregate(getAddress());
+  }
 };
 
 } // namespace clang::CIRGen

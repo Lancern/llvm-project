@@ -400,10 +400,21 @@ void CIRGenFunction::emitCallArg(CallArgList &args, const clang::Expr *e,
 
   bool hasAggregateEvalKind = hasAggregateEvaluationKind(argType);
 
-  if (hasAggregateEvalKind) {
-    assert(!cir::MissingFeatures::opCallAggregateArgs());
-    cgm.errorNYI(e->getSourceRange(),
-                 "emitCallArg: aggregate function call argument");
+  // In the Microsoft C++ ABI, aggregate arguments are destructed by the callee.
+  // However, we still have to push an EH-only cleanup in case we unwind before
+  // we make it to the call.
+  if (argType->isRecordType() &&
+      argType->castAs<RecordType>()->getDecl()->isParamDestroyedInCallee()) {
+    assert(!cir::MissingFeatures::msabi());
+    cgm.errorNYI(e->getSourceRange(), "emitCallArg: msabi is NYI");
+  }
+
+  if (hasAggregateEvalKind && isa<ImplicitCastExpr>(e) &&
+      cast<CastExpr>(e)->getCastKind() == CK_LValueToRValue) {
+    LValue lv = emitLValue(cast<CastExpr>(e)->getSubExpr());
+    assert(lv.isSimple());
+    args.addUncopiedAggregate(lv, argType);
+    return;
   }
 
   args.add(emitAnyExprToTemp(e), argType);
@@ -424,10 +435,11 @@ QualType CIRGenFunction::getVarArgType(const Expr *arg) {
 /// Similar to emitAnyExpr(), however, the result will always be accessible
 /// even if no aggregate location is provided.
 RValue CIRGenFunction::emitAnyExprToTemp(const Expr *e) {
-  assert(!cir::MissingFeatures::opCallAggregateArgs());
+  AggValueSlot aggSlot = AggValueSlot::ignored();
 
   if (hasAggregateEvaluationKind(e->getType()))
-    cgm.errorNYI(e->getSourceRange(), "emit aggregate value to temp");
+    aggSlot = createAggTemp(e->getType(), getLoc(e->getSourceRange()),
+                            getCounterAggTmpAsString());
 
   return emitAnyExpr(e);
 }

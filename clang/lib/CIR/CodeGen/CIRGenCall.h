@@ -105,6 +105,9 @@ public:
   CallArg(RValue rv, clang::QualType ty)
       : rv(rv), hasLV(false), isUsed(false), ty(ty) {}
 
+  CallArg(LValue lv, clang::QualType ty)
+      : lv(lv), hasLV(true), isUsed(false), ty(ty) {}
+
   bool hasLValue() const { return hasLV; }
 
   RValue getKnownRValue() const {
@@ -118,6 +121,10 @@ public:
 class CallArgList : public llvm::SmallVector<CallArg, 8> {
 public:
   void add(RValue rvalue, clang::QualType type) { emplace_back(rvalue, type); }
+
+  void addUncopiedAggregate(LValue lvalue, clang::QualType type) {
+    emplace_back(lvalue, type);
+  }
 
   /// Add all the arguments from another CallArgList to this one. After doing
   /// this, the old CallArgList retains its list of arguments, but must not
